@@ -1,0 +1,31 @@
+{
+  "name": "@kanban/services",
+  "version": "0.8.0",
+  "private": true,
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "dependencies": {
+    "@kanban/types": "*",
+    "@kanban/utils": "*",
+    "@kanban/database": "*",
+    "@react-native-async-storage/async-storage": "^1.21.0",
+    "bcryptjs": "^2.4.3"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6"
+  },
+  "peerDependencies": {
+    "react": ">=18.0.0",
+    "react-native": ">=0.73.0",
+    "@bam.tech/react-native-image-resizer": "^3.0.0",
+    "react-native-fs": "^2.20.0",
+    "react-native-document-picker": "^9.0.0",
+    "react-native-image-picker": "^7.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@bam.tech/react-native-image-resizer": { "optional": true },
+    "react-native-fs":                      { "optional": true },
+    "react-native-document-picker":         { "optional": true },
+    "react-native-image-picker":            { "optional": true }
+  }
+}

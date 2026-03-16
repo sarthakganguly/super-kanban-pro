@@ -1,0 +1,19 @@
+{
+  "extends": "./tsconfig.base.json",
+  "references": [
+    { "path": "./packages/types" },
+    { "path": "./packages/utils" },
+    { "path": "./packages/store" },
+    { "path": "./packages/database" },
+    { "path": "./packages/services" },
+    { "path": "./packages/ui" },
+    { "path": "./packages/adapters/sqlite" },
+    { "path": "./packages/adapters/indexeddb" },
+    { "path": "./apps/mobile" },
+    { "path": "./apps/web" }
+  ],
+  "compilerOptions": {
+    "composite": false,
+    "noEmit": true
+  }
+}

@@ -1,0 +1,44 @@
+{
+  "compilerOptions": {
+    // Language & runtime targets
+    "target": "ES2020",
+    "lib": ["ES2020", "DOM"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+
+    // Strict type checking — always on in production code
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "exactOptionalPropertyTypes": true,
+
+    // Output
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "outDir": "./dist",
+    "rootDir": "./src",
+
+    // JSX (React Native uses react-native, web uses react)
+    "jsx": "react-native",
+
+    // Path aliases — each package extends this and adds its own
+    "baseUrl": ".",
+    "paths": {
+      "@kanban/types": ["packages/types/src/index.ts"],
+      "@kanban/utils": ["packages/utils/src/index.ts"],
+      "@kanban/store": ["packages/store/src/index.ts"],
+      "@kanban/database": ["packages/database/src/index.ts"],
+      "@kanban/services": ["packages/services/src/index.ts"],
+      "@kanban/ui": ["packages/ui/src/index.ts"]
+    },
+
+    // Interop
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true
+  },
+  "exclude": ["node_modules", "dist", "**/__tests__/**"]
+}

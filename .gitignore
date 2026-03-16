@@ -1,0 +1,65 @@
+# Dependencies
+node_modules/
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+.pnp.*
+
+# Build outputs
+dist/
+build/
+*.tsbuildinfo
+
+# React Native
+.expo/
+.expo-shared/
+ios/build/
+android/build/
+android/app/build/
+*.jks
+*.keystore
+!debug.keystore
+
+# Metro bundler
+.metro-health-check*
+
+# Native build artifacts
+*.ipa
+*.apk
+*.aab
+
+# Web
+.next/
+out/
+.cache/
+
+# Testing
+coverage/
+.nyc_output/
+
+# Misc
+.DS_Store
+.env
+.env.local
+.env.*.local
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# VSCode
+.vscode/settings.json
+!.vscode/extensions.json
+!.vscode/launch.json
+
+# Docker
+docker/data/
+
+# SQLite databases (dev only — never commit user data)
+*.db
+*.sqlite
+*.sqlite3
+
+# OS
+Thumbs.db

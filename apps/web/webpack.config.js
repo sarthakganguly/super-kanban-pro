@@ -1,0 +1,151 @@
+const path = require('path');
+const HtmlWebpackPlugin = require('html-webpack-plugin');
+const { InjectManifest } = require('workbox-webpack-plugin');
+
+const monorepoRoot = path.resolve(__dirname, '../..');
+
+module.exports = (env, argv) => {
+  const isDev = argv.mode === 'development';
+
+  return {
+    entry: './src/index.tsx',
+
+    output: {
+      path:       path.resolve(__dirname, 'dist'),
+      filename:   isDev ? '[name].js' : '[name].[contenthash].js',
+      clean:      !isDev,
+      publicPath: '/',
+    },
+
+    resolve: {
+      extensions: ['.web.tsx', '.web.ts', '.tsx', '.ts', '.web.js', '.js'],
+      alias: {
+        // React Native → React Native Web
+        'react-native$': 'react-native-web',
+
+        // Monorepo package aliases
+        '@kanban/types':    path.resolve(monorepoRoot, 'packages/types/src'),
+        '@kanban/utils':    path.resolve(monorepoRoot, 'packages/utils/src'),
+        '@kanban/store':    path.resolve(monorepoRoot, 'packages/store/src'),
+        '@kanban/database': path.resolve(monorepoRoot, 'packages/database/src'),
+        '@kanban/services': path.resolve(monorepoRoot, 'packages/services/src'),
+        '@kanban/ui':       path.resolve(monorepoRoot, 'packages/ui/src'),
+
+        // Deep path aliases — used by packages that import directly into siblings
+        '@kanban/database/src/schema/migrations': path.resolve(monorepoRoot, 'packages/database/src/schema/migrations'),
+        '@kanban/database/src/schema':            path.resolve(monorepoRoot, 'packages/database/src/schema'),
+
+        // Cross-package relative imports — used by UI components that reach into services/src
+        '../../../services/src/settings/SettingsService': path.resolve(monorepoRoot, 'packages/services/src/settings/SettingsService'),
+        '../../../../services/src/performance/flatListConfig': path.resolve(monorepoRoot, 'packages/services/src/performance/flatListConfig'),
+        '../../../../services/src/thumbnail/useThumbnail': path.resolve(monorepoRoot, 'packages/services/src/thumbnail/useThumbnail'),
+        '../../../theme/ThemeProvider': path.resolve(monorepoRoot, 'packages/ui/src/theme/ThemeProvider'),
+        '../../theme/ThemeProvider':    path.resolve(monorepoRoot, 'packages/ui/src/theme/ThemeProvider'),
+        '../theme/ThemeProvider':       path.resolve(monorepoRoot, 'packages/ui/src/theme/ThemeProvider'),
+        '../components/Button':         path.resolve(monorepoRoot, 'packages/ui/src/components/Button'),
+        '../components/TextInput':      path.resolve(monorepoRoot, 'packages/ui/src/components/TextInput'),
+        '../components/Modal':          path.resolve(monorepoRoot, 'packages/ui/src/components/Modal'),
+        '../components/EmptyState':     path.resolve(monorepoRoot, 'packages/ui/src/components/EmptyState'),
+        '../components/IconButton':     path.resolve(monorepoRoot, 'packages/ui/src/components/IconButton'),
+        '../../components/Button':      path.resolve(monorepoRoot, 'packages/ui/src/components/Button'),
+        '../../components/IconButton':  path.resolve(monorepoRoot, 'packages/ui/src/components/IconButton'),
+        '../../components/Modal':       path.resolve(monorepoRoot, 'packages/ui/src/components/Modal'),
+        '../../components/TextInput':   path.resolve(monorepoRoot, 'packages/ui/src/components/TextInput'),
+
+        // UpdatePrompt imports sw-registration via a relative cross-package path
+        '../../../../apps/web/src/pwa/sw-registration': path.resolve(__dirname, 'src/pwa/sw-registration'),
+
+        // Native-only modules — stub them out on web with empty modules
+        // These are dynamically imported inside Platform.OS === 'web' ? ... guards
+        // so they never actually execute, but webpack still needs to resolve them.
+        'react-native-fs':                            path.resolve(__dirname, 'src/stubs/empty.js'),
+        'react-native-document-picker':               path.resolve(__dirname, 'src/stubs/empty.js'),
+        'react-native-image-picker':                  path.resolve(__dirname, 'src/stubs/empty.js'),
+        '@bam.tech/react-native-image-resizer':       path.resolve(__dirname, 'src/stubs/empty.js'),
+        '@react-native-community/netinfo':            path.resolve(__dirname, 'src/stubs/empty.js'),
+      },
+      fallback: {
+        // bcryptjs uses Node's crypto — stub it out on web (we don't hash on the client in prod)
+        crypto: false,
+      },
+    },
+
+    module: {
+      rules: [
+        {
+          test:    /\.(tsx?|jsx?)$/,
+          exclude: [
+            /node_modules\/(?!(@kanban|react-native-web|@nozbe))/,
+            /service-worker\.ts$/,
+          ],
+          use: {
+            loader: 'babel-loader',
+            options: {
+              presets: [
+                ['@babel/preset-env', { targets: 'defaults' }],
+                ['@babel/preset-react', { runtime: 'automatic' }],
+                '@babel/preset-typescript',
+              ],
+              plugins: [
+                // Must be before @babel/plugin-transform-class-properties
+                ['@babel/plugin-proposal-decorators', { legacy: true }],
+                ['@babel/plugin-transform-class-properties', { loose: true }],
+              ],
+            },
+          },
+        },
+        { test: /\.css$/, use: ['style-loader', 'css-loader'] },
+        { test: /\.(png|jpg|gif|svg|ttf|woff2?)$/, type: 'asset/resource' },
+      ],
+    },
+
+    plugins: [
+      new HtmlWebpackPlugin({
+        template: './public/index.html',
+      }),
+
+      ...(!isDev ? [
+        new InjectManifest({
+          swSrc:  './src/pwa/service-worker.ts',
+          swDest: 'service-worker.js',
+          maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
+          exclude: [/\.map$/, /^manifest.*\.js$/],
+        }),
+      ] : []),
+    ],
+
+    devServer: {
+      host:               '0.0.0.0',
+      port:               8080,
+      historyApiFallback: true,
+      hot:                true,
+      static: [
+        { directory: path.resolve(__dirname, 'public'), publicPath: '/' },
+      ],
+      watchFiles: [
+        path.resolve(monorepoRoot, 'packages/**/*.ts'),
+        path.resolve(monorepoRoot, 'packages/**/*.tsx'),
+      ],
+    },
+
+    devtool: isDev ? 'eval-cheap-module-source-map' : 'source-map',
+
+    optimization: isDev ? {} : {
+      splitChunks: {
+        chunks: 'all',
+        cacheGroups: {
+          vendor: {
+            test:   /[\\/]node_modules[\\/]/,
+            name:   'vendors',
+            chunks: 'all',
+          },
+          watermelon: {
+            test:   /[\\/]node_modules[\\/]@nozbe[\\/]/,
+            name:   'watermelondb',
+            chunks: 'all',
+          },
+        },
+      },
+    },
+  };
+};

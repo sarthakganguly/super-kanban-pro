@@ -1,0 +1,69 @@
+{
+  "folders": [
+    { "path": "." }
+  ],
+  "settings": {
+    // TypeScript — use the workspace version, not VS Code's bundled one
+    "typescript.tsdk": "node_modules/typescript/lib",
+    "typescript.enablePromptUseWorkspaceTsdk": true,
+
+    // Format on save
+    "editor.formatOnSave": true,
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+
+    // ESLint auto-fix on save
+    "editor.codeActionsOnSave": {
+      "source.fixAll.eslint": "explicit"
+    },
+
+    // File associations
+    "files.associations": {
+      "*.tsx": "typescriptreact",
+      "*.ts": "typescript"
+    },
+
+    // Exclude noise from file explorer
+    "files.exclude": {
+      "**/node_modules": true,
+      "**/dist": true,
+      "**/.yarn": true
+    },
+
+    // Search exclusions for performance
+    "search.exclude": {
+      "**/node_modules": true,
+      "**/dist": true,
+      "**/*.tsbuildinfo": true
+    },
+
+    // Remote Development — use the Docker container
+    "remote.containers.defaultExtensions": [
+      "dbaeumer.vscode-eslint",
+      "esbenp.prettier-vscode",
+      "ms-vscode.vscode-typescript-next"
+    ]
+  },
+  "extensions": {
+    "recommendations": [
+      // Remote Development (required for ThinkPad workflow)
+      "ms-vscode-remote.remote-ssh",
+      "ms-vscode-remote.remote-containers",
+      "ms-vscode-remote.vscode-remote-extensionpack",
+
+      // TypeScript & React
+      "ms-vscode.vscode-typescript-next",
+      "dsznajder.es7-react-js-snippets",
+
+      // Linting & formatting
+      "dbaeumer.vscode-eslint",
+      "esbenp.prettier-vscode",
+
+      // Git
+      "eamodio.gitlens",
+
+      // Utilities
+      "PKief.material-icon-theme",
+      "wayou.vscode-todo-highlight"
+    ]
+  }
+}

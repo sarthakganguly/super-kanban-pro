@@ -1,0 +1,14 @@
+{
+  "name": "@kanban/adapters-sqlite",
+  "version": "0.2.0",
+  "private": true,
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "dependencies": {
+    "@nozbe/watermelondb": "^0.27.1",
+    "@kanban/database": "*"
+  },
+  "peerDependencies": {
+    "react-native": ">=0.73.0"
+  }
+}

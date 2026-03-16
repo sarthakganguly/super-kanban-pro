@@ -1,0 +1,31 @@
+# Dependencies — never send to Docker, they're installed inside the image
+node_modules
+**/node_modules
+
+# Build outputs
+apps/web/dist
+**/dist
+
+# Git history
+.git
+.gitignore
+
+# Editor / OS files
+.DS_Store
+.vscode
+*.log
+
+# Test coverage
+coverage
+.nyc_output
+
+# Env files
+.env
+.env.*
+
+# Android/iOS build artifacts
+apps/mobile/android/build
+apps/mobile/android/app/build
+apps/mobile/ios/build
+*.apk
+*.ipa

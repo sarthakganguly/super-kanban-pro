@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+
+    <!-- Theme color — matches manifest background_color -->
+    <meta name="theme-color" content="#111827" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)" />
+
+    <!-- PWA -->
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Kanban" />
+
+    <!-- Apple touch icons (fallback for iOS home screen) -->
+    <link rel="apple-touch-icon" href="/favicon.png" />
+    <link rel="apple-touch-icon" sizes="152x152" href="/favicon.png" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+
+    <!-- Description -->
+    <meta name="description" content="Offline-first Kanban board — all data stays on your device" />
+
+    <!-- Open Graph (for sharing) -->
+    <meta property="og:title" content="Kanban" />
+    <meta property="og:description" content="Offline-first Kanban board" />
+    <meta property="og:type" content="website" />
+
+    <title>Super Kanban Pro</title>
+
+    <style>
+      /* Prevent flash of unstyled content */
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      html, body, #root { height: 100%; }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        -webkit-font-smoothing: antialiased;
+        /* Prevent overscroll bounce on iOS when installed as PWA */
+        overscroll-behavior: none;
+      }
+      /* Splash screen background while JS loads */
+      #root {
+        background-color: #111827;
+      }
+      @media (prefers-color-scheme: light) {
+        #root { background-color: #ffffff; }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <!-- Service worker registration is handled in src/index.tsx -->
+  </body>
+</html>

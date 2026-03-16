@@ -1,0 +1,107 @@
+# =============================================================================
+# Kanban App — Docker Compose
+# =============================================================================
+#
+# Services:
+#   web   — Webpack dev server, starts automatically on `docker compose up`
+#   test  — Jest test suite, run with: docker compose run --rm test
+#   app   — persistent shell container for VS Code Remote / Metro / git
+#
+# Quick start:
+#   docker compose up -d          # build image + start web at :8080
+#   docker compose run --rm test  # run all tests then exit
+#   docker compose exec app bash  # open interactive shell
+#
+# First run note:
+#   yarn install runs inside the Dockerfile (multi-stage build).
+#   No manual install step needed — just `docker compose up`.
+#
+# Stopping:
+#   docker compose down    # stop and remove containers
+#   docker compose down -v # also wipe named volumes (fresh state)
+# =============================================================================
+
+# ---------------------------------------------------------------------------
+# Shared configuration — merged into every service with <<: *base
+# ---------------------------------------------------------------------------
+x-base: &base
+  build:
+    context: .
+    dockerfile: Dockerfile
+  # Source code is bind-mounted so live edits are reflected without rebuilds.
+  # node_modules are NOT mounted — they live inside the image (baked in by
+  # the multi-stage Dockerfile) so the host never overwrites them.
+  volumes:
+    - ./packages:/workspace/packages
+    - ./apps:/workspace/apps
+    - ./package.json:/workspace/package.json
+    - ./tsconfig.json:/workspace/tsconfig.json
+    - ./tsconfig.base.json:/workspace/tsconfig.base.json
+    - ./jest.setup.ts:/workspace/jest.setup.ts
+    - ./.eslintrc.js:/workspace/.eslintrc.js
+    - ./__mocks__:/workspace/__mocks__
+    - android_sdk:/opt/android-sdk
+  environment:
+    - REACT_NATIVE_PACKAGER_HOSTNAME=192.168.1.100
+    - NODE_ENV=development
+    - NEXT_TELEMETRY_DISABLED=1
+  ulimits:
+    nofile:
+      soft: 65536
+      hard: 65536
+  deploy:
+    resources:
+      limits:
+        memory: 3G
+      reservations:
+        memory: 512M
+
+# ---------------------------------------------------------------------------
+# Services
+# ---------------------------------------------------------------------------
+services:
+
+  # Webpack dev server — starts automatically, hot-reloads on file changes
+  web:
+    <<: *base
+    container_name: kanban_web
+    command: yarn web
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080"]
+      interval: 20s
+      timeout: 10s
+      retries: 5
+      start_period: 90s
+
+  # Jest test runner — only starts when explicitly called
+  # Usage: docker compose run --rm test
+  test:
+    <<: *base
+    container_name: kanban_test
+    command: yarn test --passWithNoTests --forceExit
+    profiles:
+      - test
+    restart: "no"
+
+  # Persistent shell — for VS Code Remote, Metro bundler, git
+  # Usage: docker compose exec app bash
+  app:
+    <<: *base
+    container_name: kanban_app
+    command: tail -f /dev/null
+    ports:
+      - "8081:8081"
+      - "19000:19000"
+      - "19001:19001"
+    stdin_open: true
+    tty: true
+    restart: unless-stopped
+
+# ---------------------------------------------------------------------------
+# Volumes
+# ---------------------------------------------------------------------------
+volumes:
+  android_sdk:

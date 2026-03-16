@@ -1,0 +1,35 @@
+{
+  "name": "@kanban/mobile",
+  "version": "0.8.0",
+  "private": true,
+  "scripts": {
+    "start": "react-native start",
+    "android": "react-native run-android",
+    "ios": "react-native run-ios",
+    "test": "jest"
+  },
+  "dependencies": {
+    "@kanban/adapters-sqlite": "*",
+    "@kanban/database": "*",
+    "@kanban/services": "*",
+    "@kanban/store": "*",
+    "@kanban/types": "*",
+    "@kanban/ui": "*",
+    "@kanban/utils": "*",
+    "@nozbe/watermelondb": "^0.27.1",
+    "@bam.tech/react-native-image-resizer": "^3.0.0",
+    "react-native-fs": "^2.20.0",
+    "react-native-document-picker": "^9.0.0",
+    "react-native-image-picker": "^7.0.0",
+    "react": "18.2.0",
+    "react-native": "0.73.2",
+    "zustand": "^4.5.0"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.23.7",
+    "@react-native/babel-preset": "^0.73.0",
+    "@react-native/metro-config": "^0.73.0",
+    "@react-native/typescript-config": "^0.73.0",
+    "metro-config": "^0.80.0"
+  }
+}
