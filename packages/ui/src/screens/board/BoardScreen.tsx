@@ -7,7 +7,9 @@
 import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
-  Modal, // Native modal used for full-screen CardDetail
+  Alert,
+  Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -27,27 +29,15 @@ import { DragProvider } from './drag/DragContext';
 import { useDragDrop } from './drag/useDragDrop';
 import { SwimlaneColumn } from './components/SwimlaneColumn';
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
 export interface BoardScreenProps {
   projectId:   string;
   projectName: string;
   onBack:      () => void;
 }
 
-// ---------------------------------------------------------------------------
-// BoardScreen — thin shell, just renders BoardInner
-// ---------------------------------------------------------------------------
-
 export function BoardScreen(props: BoardScreenProps) {
   return <BoardInner {...props} />;
 }
-
-// ---------------------------------------------------------------------------
-// BoardInner — owns all data + drag wiring
-// ---------------------------------------------------------------------------
 
 function BoardInner({ projectId, projectName, onBack }: BoardScreenProps) {
   const theme = useTheme();
@@ -55,7 +45,7 @@ function BoardInner({ projectId, projectName, onBack }: BoardScreenProps) {
   const {
     lanes, cards, isLoading, error, clearError,
     createCard, updateCard, moveCard, deleteCard,
-    createLane, renameLane, deleteLane, // createLane added here
+    createLane, renameLane, deleteLane,
     rebalanceIfNeeded,
   } = useLiveBoard(projectId);
 
@@ -70,11 +60,10 @@ function BoardInner({ projectId, projectName, onBack }: BoardScreenProps) {
 
   const [selectedCard, setSelectedCard] = useState<Card | null>(null);
 
-  // New Lane State
-  const [showAddLane, setShowAddLane] = useState(false);
+  const[showAddLane, setShowAddLane] = useState(false);
   const [newLaneName, setNewLaneName] = useState('');
   const[newLaneColor, setNewLaneColor] = useState(LANE_COLOR_PALETTE[0]!);
-  const[isAddingLane, setIsAddingLane] = useState(false);
+  const [isAddingLane, setIsAddingLane] = useState(false);
 
   const handleAddLaneSubmit = useCallback(async () => {
     if (!newLaneName.trim()) return;
@@ -84,7 +73,7 @@ function BoardInner({ projectId, projectName, onBack }: BoardScreenProps) {
     setShowAddLane(false);
     setNewLaneName('');
     setNewLaneColor(LANE_COLOR_PALETTE[0]!);
-  }, [newLaneName, newLaneColor, createLane]);
+  },[newLaneName, newLaneColor, createLane]);
 
   const handleCardPress = useCallback(
     (cardId: string) => {
@@ -118,19 +107,33 @@ function BoardInner({ projectId, projectName, onBack }: BoardScreenProps) {
   );
 
   const handleDeleteLane = useCallback(
-    (laneId: string) => {
-      const lane      = lanes.find((l) => l.id === laneId);
-      const cardCount = cards.get(laneId)?.length ?? 0;
-      const { Alert } = require('react-native');
-      Alert.alert(
-        'Delete lane',
-        `Delete "${lane?.name}"${cardCount > 0 ? ` and its ${cardCount} card${cardCount !== 1 ? 's' : ''}` : ''}? This cannot be undone.`,[
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Delete', style: 'destructive', onPress: () => void deleteLane(laneId) },
-        ],
-      );
+    (laneId: string, laneName: string, cardCount: number) => {
+      console.log('[DEBUG] handleDeleteLane triggered for:', laneName);
+
+      const message = `Delete "${laneName}"${cardCount > 0 ? ` and its ${cardCount} card(s)` : ''}? This cannot be undone.`;
+
+      // On Web, use standard browser confirm to avoid React Native Web's Alert/Modal collisions
+      if (Platform.OS === 'web') {
+        const confirmed = window.confirm(message);
+        if (confirmed) {
+          console.log('[DEBUG] User confirmed web prompt. Firing deleteLane...');
+          void deleteLane(laneId);
+        } else {
+          console.log('[DEBUG] User canceled web prompt.');
+        }
+        return;
+      }
+
+      // Native fallback
+      Alert.alert('Delete lane', message,[
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: () => {
+            console.log('[DEBUG] User confirmed native prompt. Firing deleteLane...');
+            void deleteLane(laneId); 
+        }},
+      ]);
     },
-    [lanes, cards, deleteLane],
+    [deleteLane],
   );
 
   if (isLoading) {
@@ -177,7 +180,6 @@ function BoardInner({ projectId, projectName, onBack }: BoardScreenProps) {
             />
           ))}
 
-          {/* Add Lane Button */}
           <Pressable
             style={({ pressed }) =>[
               styles.addLaneButton,
@@ -202,7 +204,6 @@ function BoardInner({ projectId, projectName, onBack }: BoardScreenProps) {
         <DragGhost />
       </DragProvider>
 
-      {/* Card detail full-screen modal */}
       <Modal
         visible={selectedCard !== null}
         animationType="slide"
@@ -219,7 +220,6 @@ function BoardInner({ projectId, projectName, onBack }: BoardScreenProps) {
         )}
       </Modal>
 
-      {/* New Lane Creation Modal */}
       <CustomModal
         visible={showAddLane}
         onClose={() => { setShowAddLane(false); setNewLaneName(''); }}
@@ -249,10 +249,6 @@ function BoardInner({ projectId, projectName, onBack }: BoardScreenProps) {
   );
 }
 
-// ---------------------------------------------------------------------------
-// BoardHeader
-// ---------------------------------------------------------------------------
-
 function BoardHeader({ projectName, onBack }: { projectName: string; onBack: () => void }) {
   const theme = useTheme();
   return (
@@ -277,9 +273,8 @@ const styles = StyleSheet.create({
   boardContent:  { paddingHorizontal: 12, paddingVertical: 16, alignItems: 'flex-start' },
   endSpacer:     { width: 12 },
   
-  // Add Lane Button
   addLaneButton: {
-    width: 280, // Matches SwimlaneColumn COLUMN_WIDTH
+    width: 280,
     height: 48,
     borderRadius: 12,
     borderWidth: 1,
@@ -292,8 +287,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
-  
-  // Add Lane Modal
   modalInput: { 
     marginBottom: 16 
   },

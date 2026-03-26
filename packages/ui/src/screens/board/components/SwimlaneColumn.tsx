@@ -23,7 +23,6 @@ import { IconButton } from '../../components/IconButton';
 import { Modal } from '../../components/Modal';
 import { TextInput } from '../../components/TextInput';
 import { DraggableCardItem } from '../drag/DraggableCardItem';
-// We keep selectFlatListPreset, but removed getCardItemLayout
 import { selectFlatListPreset } from '../../../../services/src/performance/flatListConfig';
 import { DropZone } from '../drag/DropZone';
 import { useDragContext } from '../drag/DragContext';
@@ -35,7 +34,7 @@ export interface SwimlaneColumnProps {
   onCardLongPress:  (cardId: string) => void;
   onCreateCard:     (laneId: string, title: string) => Promise<void>;
   onRenameLane:     (laneId: string, name: string) => Promise<void>;
-  onDeleteLane:     (laneId: string) => void;
+  onDeleteLane:     (laneId: string, name: string, cardCount: number) => void;
 }
 
 function SwimlaneColumnBase({
@@ -52,14 +51,13 @@ function SwimlaneColumnBase({
 
   const columnRef = useRef<View>(null);
 
-  const[addingCard,    setAddingCard]    = useState(false);
+  const [addingCard,    setAddingCard]    = useState(false);
   const[newCardTitle,  setNewCardTitle]  = useState('');
   const [addingLoading, setAddingLoading] = useState(false);
-  const [menuOpen,    setMenuOpen]    = useState(false);
-  const[renaming,    setRenaming]    = useState(false);
-  const [renameValue, setRenameValue] = useState(lane.name);
+  const [menuOpen,      setMenuOpen]      = useState(false);
+  const[renaming,      setRenaming]      = useState(false);
+  const [renameValue,   setRenameValue]   = useState(lane.name);
 
-  // Register page-level bounds whenever the column lays out or scrolls
   const handleLayout = useCallback(() => {
     columnRef.current?.measureInWindow((x, y, width, height) => {
       dragCtx.registerLaneBounds(lane.id, x, x + width, y);
@@ -73,13 +71,13 @@ function SwimlaneColumnBase({
     setAddingLoading(false);
     setNewCardTitle('');
     setAddingCard(false);
-  }, [lane.id, newCardTitle, onCreateCard]);
+  },[lane.id, newCardTitle, onCreateCard]);
 
   const handleRename = useCallback(async () => {
     if (!renameValue.trim()) return;
     await onRenameLane(lane.id, renameValue);
     setRenaming(false);
-  },[lane.id, renameValue, onRenameLane]);
+  }, [lane.id, renameValue, onRenameLane]);
 
   const renderCard: ListRenderItem<Card> = useCallback(
     ({ item }) => (
@@ -89,11 +87,10 @@ function SwimlaneColumnBase({
         onPress={onCardPress}
         onLongPress={onCardLongPress}
       />
-    ),
-    [lane.id, onCardPress, onCardLongPress],
+    ),[lane.id, onCardPress, onCardLongPress],
   );
 
-  const keyExtractor = useCallback((item: Card) => item.id,[]);
+  const keyExtractor = useCallback((item: Card) => item.id, []);
 
   return (
     <View
@@ -134,7 +131,6 @@ function SwimlaneColumnBase({
         contentContainerStyle={styles.cardList}
         showsVerticalScrollIndicator={false}
         {...selectFlatListPreset(cards.length)}
-        // getItemLayout is removed so FlatList measures card heights dynamically!
       />
 
       {addingCard ? (
@@ -170,7 +166,16 @@ function SwimlaneColumnBase({
       <Modal visible={menuOpen} onClose={() => setMenuOpen(false)} title={lane.name}>
         <View style={styles.menuActions}>
           <Button label="Rename lane" variant="secondary" onPress={() => { setMenuOpen(false); setRenameValue(lane.name); setRenaming(true); }} />
-          <Button label="Delete lane" variant="destructive" onPress={() => { setMenuOpen(false); onDeleteLane(lane.id); }} />
+          <Button 
+            label="Delete lane" 
+            variant="destructive" 
+            onPress={() => { 
+              console.log('[DEBUG] Delete button clicked for lane:', lane.name);
+              setMenuOpen(false); 
+              // Completely synchronous call! No setTimeout.
+              onDeleteLane(lane.id, lane.name, cards.length); 
+            }} 
+          />
         </View>
       </Modal>
 
@@ -186,7 +191,7 @@ export const SwimlaneColumn = memo(SwimlaneColumnBase, (prev, next) =>
   prev.lane.id    === next.lane.id &&
   prev.lane.name  === next.lane.name &&
   prev.lane.color === next.lane.color &&
-  prev.cards      === next.cards,
+  prev.cards      === next.cards
 );
 
 const COLUMN_WIDTH = 280;

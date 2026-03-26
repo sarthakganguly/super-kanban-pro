@@ -7,6 +7,7 @@
 import { Database, Q } from '@nozbe/watermelondb';
 import { DEFAULT_LANES } from '@kanban/types';
 import { SwimlaneModel } from '../models/SwimlaneModel';
+import { CardModel } from '../models/CardModel';
 
 export class SwimlaneRepository {
   constructor(private readonly db: Database) {}
@@ -29,10 +30,6 @@ export class SwimlaneRepository {
     }
   }
 
-  /**
-   * Creates the default set of swimlanes for a new project.
-   * Runs inside the caller's transaction if provided, otherwise starts its own.
-   */
   async createDefaults(projectId: string): Promise<SwimlaneModel[]> {
     const now = Date.now();
 
@@ -94,8 +91,16 @@ export class SwimlaneRepository {
 
   async delete(laneId: string): Promise<void> {
     const lane = await this.db.get<SwimlaneModel>('swimlanes').find(laneId);
+    
+    // Cascading deletion — grab all cards belonging to this lane
+    const cards = await this.db.get<CardModel>('cards').query(Q.where('lane_id', laneId)).fetch();
+
     await this.db.write(async () => {
-      await lane.destroyPermanently();
+      const cardDeletions = cards.map((c) => c.prepareDestroyPermanently());
+      await this.db.batch(
+        lane.prepareDestroyPermanently(),
+        ...cardDeletions
+      );
     });
   }
 }

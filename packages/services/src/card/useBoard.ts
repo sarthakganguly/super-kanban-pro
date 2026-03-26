@@ -251,49 +251,37 @@ export function useBoard(projectId: string): UseBoardReturn {
     }
   }, [projectId]);
 
-  const renameLane = useCallback(async (laneId: string, name: string) => {
-    try {
-      await laneSvc.current.renameLane(laneId, name);
-      setLanes((prev) =>
-        prev.map((l) => (l.id === laneId ? { ...l, name } : l)),
-      );
-    } catch {
-      setError('Failed to rename lane.');
-    }
-  }, []);
+  const renameLane = useCallback(
+    async (laneId: string, name: string) => {
+      // Optimistic UI patch
+      setLanes((prev) => prev.map((l) => l.id === laneId ? { ...l, name } : l));
+      try { await laneSvc.current.renameLane(laneId, name); }
+      catch { setError('Failed to rename lane.'); }
+    },[],
+  );
+ 
 
-  const recolorLane = useCallback(async (laneId: string, color: string) => {
-    try {
-      await laneSvc.current.recolorLane(laneId, color);
-      setLanes((prev) =>
-        prev.map((l) => (l.id === laneId ? { ...l, color } : l)),
-      );
-    } catch {
-      setError('Failed to update lane color.');
-    }
-  }, []);
+  const recolorLane = useCallback(
+    async (laneId: string, color: string) => {
+      // Optimistic UI patch
+      setLanes((prev) => prev.map((l) => l.id === laneId ? { ...l, color } : l));
+      try { await laneSvc.current.recolorLane(laneId, color); }
+      catch { setError('Failed to update lane color.'); }
+    },[],
+  );
 
   const deleteLane = useCallback(
     async (laneId: string) => {
-      const snapshotLanes = [...lanes];
-      const snapshotCards = new Map(cards);
-
+      // Optimistic UI patch (removes lane and its cards from UI instantly)
       setLanes((prev) => prev.filter((l) => l.id !== laneId));
       setCards((prev) => {
         const next = new Map(prev);
         next.delete(laneId);
         return next;
       });
-
-      try {
-        await laneSvc.current.deleteLane(laneId);
-      } catch {
-        setLanes(snapshotLanes);
-        setCards(snapshotCards);
-        setError('Failed to delete lane.');
-      }
-    },
-    [lanes, cards],
+      try { await laneSvc.current.deleteLane(laneId); }
+      catch { setError('Failed to delete lane.'); }
+    },[],
   );
 
   return {
