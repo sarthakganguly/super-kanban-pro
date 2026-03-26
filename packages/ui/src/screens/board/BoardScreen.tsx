@@ -1,3 +1,9 @@
+/* 
+ * BoardScreen - A single useLiveBoard call inside BoardInner. DragProvider is rendered
+ * inside BoardInner so it shares the same data, and SwimlaneColumn registers
+ * bounds via useDragContext directly (no prop needed).
+ */
+
 import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
