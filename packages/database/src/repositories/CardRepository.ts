@@ -81,7 +81,7 @@ export class CardRepository {
     // Group and sort per lane
     const grouped = new Map<string, CardModel[]>();
     for (const laneId of laneIds) {
-      grouped.set(laneId, []);
+      grouped.set(laneId,[]);
     }
     for (const card of cards) {
       grouped.get(card.laneId)?.push(card);
@@ -106,16 +106,18 @@ export class CardRepository {
   // ---------------------------------------------------------------------------
 
   /**
-   * Creates a card at the end of the given lane.
-   * Position index is computed as (lastCard.positionIndex + 2).
+   * Creates a card at the TOP of the given lane.
+   * Position index is computed between 'null' (start) and the current first card.
    */
   async create(input: CreateCardInput): Promise<CardModel> {
     const existingCards = await this.findByLaneId(input.laneId);
-    const lastCard = existingCards[existingCards.length - 1];
+    
+    // Grab the current first card (if any) to calculate the insertion position
+    const firstCard = existingCards[0];
 
     const positionIndex = computeFractionalIndex(
-      lastCard?.positionIndex ?? null,
-      null,
+      null, // No previous card (inserting at the very beginning)
+      firstCard?.positionIndex ?? null, // The current first card gets pushed down
     );
 
     const now = Date.now();

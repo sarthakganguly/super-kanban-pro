@@ -1,29 +1,20 @@
-/**
- * BoardScreen — fixed
- *
- * Previously: outer BoardScreen called useLiveBoard once and inner BoardInner
- * called it again — two separate subscriptions, and DragProvider's onDrop was
- * wired to the outer instance while registerLaneBounds went to the inner one.
- *
- * Now: a single useLiveBoard call inside BoardInner. DragProvider is rendered
- * inside BoardInner so it shares the same data, and SwimlaneColumn registers
- * bounds via useDragContext directly (no prop needed).
- */
-
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
-  Modal,
+  Modal, // Native modal used for full-screen CardDetail
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
-import { useLiveBoard } from '@kanban/services';
+import { useLiveBoard, LANE_COLOR_PALETTE } from '@kanban/services';
 import type { Card } from '@kanban/types';
 import { useTheme } from '../../theme/ThemeProvider';
 import { Button } from '../../components/Button';
+import { TextInput } from '../../components/TextInput';
+import { Modal as CustomModal } from '../../components/Modal';
+import { ColorPicker } from '../../components/settings/ColorPicker';
 import { CardDetailScreen } from './CardDetailScreen';
 import { DragGhost } from './drag/DragGhost';
 import { DragProvider } from './drag/DragContext';
@@ -55,26 +46,39 @@ export function BoardScreen(props: BoardScreenProps) {
 function BoardInner({ projectId, projectName, onBack }: BoardScreenProps) {
   const theme = useTheme();
 
-  // ONE call to useLiveBoard — the single source of truth for this board
   const {
     lanes, cards, isLoading, error, clearError,
     createCard, updateCard, moveCard, deleteCard,
-    renameLane, deleteLane,
+    createLane, renameLane, deleteLane, // createLane added here
     rebalanceIfNeeded,
   } = useLiveBoard(projectId);
 
-  // onDrop wired to this board's moveCard
   const { onDrop } = useDragDrop({ lanes, cards, moveCard });
 
-  // Auto-rebalance after board stabilises
   React.useEffect(() => {
     if (!isLoading) {
       const timer = setTimeout(() => void rebalanceIfNeeded(), 3000);
       return () => clearTimeout(timer);
     }
-  }, [isLoading, rebalanceIfNeeded]);
+  },[isLoading, rebalanceIfNeeded]);
 
   const [selectedCard, setSelectedCard] = useState<Card | null>(null);
+
+  // New Lane State
+  const [showAddLane, setShowAddLane] = useState(false);
+  const [newLaneName, setNewLaneName] = useState('');
+  const[newLaneColor, setNewLaneColor] = useState(LANE_COLOR_PALETTE[0]!);
+  const[isAddingLane, setIsAddingLane] = useState(false);
+
+  const handleAddLaneSubmit = useCallback(async () => {
+    if (!newLaneName.trim()) return;
+    setIsAddingLane(true);
+    await createLane(newLaneName.trim(), newLaneColor);
+    setIsAddingLane(false);
+    setShowAddLane(false);
+    setNewLaneName('');
+    setNewLaneColor(LANE_COLOR_PALETTE[0]!);
+  }, [newLaneName, newLaneColor, createLane]);
 
   const handleCardPress = useCallback(
     (cardId: string) => {
@@ -86,9 +90,7 @@ function BoardInner({ projectId, projectName, onBack }: BoardScreenProps) {
     [cards],
   );
 
-  const handleCardLongPress = useCallback((_cardId: string) => {
-    // Drag is initiated by DraggableCardItem — nothing extra needed here
-  }, []);
+  const handleCardLongPress = useCallback((_cardId: string) => {},[]);
 
   const handleCreateCard = useCallback(
     async (laneId: string, title: string) => { await createCard({ laneId, title }); },
@@ -116,8 +118,7 @@ function BoardInner({ projectId, projectName, onBack }: BoardScreenProps) {
       const { Alert } = require('react-native');
       Alert.alert(
         'Delete lane',
-        `Delete "${lane?.name}"${cardCount > 0 ? ` and its ${cardCount} card${cardCount !== 1 ? 's' : ''}` : ''}? This cannot be undone.`,
-        [
+        `Delete "${lane?.name}"${cardCount > 0 ? ` and its ${cardCount} card${cardCount !== 1 ? 's' : ''}` : ''}? This cannot be undone.`,[
           { text: 'Cancel', style: 'cancel' },
           { text: 'Delete', style: 'destructive', onPress: () => void deleteLane(laneId) },
         ],
@@ -125,10 +126,6 @@ function BoardInner({ projectId, projectName, onBack }: BoardScreenProps) {
     },
     [lanes, cards, deleteLane],
   );
-
-  // ---------------------------------------------------------------------------
-  // Loading state (outside DragProvider is fine)
-  // ---------------------------------------------------------------------------
 
   if (isLoading) {
     return (
@@ -140,11 +137,6 @@ function BoardInner({ projectId, projectName, onBack }: BoardScreenProps) {
       </View>
     );
   }
-
-  // ---------------------------------------------------------------------------
-  // Main board — DragProvider wraps the scroll area and columns so
-  // SwimlaneColumn can call useDragContext() to register its bounds.
-  // ---------------------------------------------------------------------------
 
   return (
     <View style={[styles.root, { backgroundColor: theme.colors.bgTertiary }]}>
@@ -170,7 +162,7 @@ function BoardInner({ projectId, projectName, onBack }: BoardScreenProps) {
             <SwimlaneColumn
               key={lane.id}
               lane={lane}
-              cards={cards.get(lane.id) ?? []}
+              cards={cards.get(lane.id) ??[]}
               onCardPress={handleCardPress}
               onCardLongPress={handleCardLongPress}
               onCreateCard={handleCreateCard}
@@ -178,14 +170,33 @@ function BoardInner({ projectId, projectName, onBack }: BoardScreenProps) {
               onDeleteLane={handleDeleteLane}
             />
           ))}
+
+          {/* Add Lane Button */}
+          <Pressable
+            style={({ pressed }) =>[
+              styles.addLaneButton,
+              {
+                backgroundColor: theme.colors.bgSecondary,
+                borderColor: theme.colors.borderDefault,
+                opacity: pressed ? 0.7 : 1,
+              },
+            ]}
+            onPress={() => setShowAddLane(true)}
+            accessibilityRole="button"
+            accessibilityLabel="Add new lane"
+          >
+            <Text style={[styles.addLaneText, { color: theme.colors.textSecondary }]}>
+              + Add another lane
+            </Text>
+          </Pressable>
+
           <View style={styles.endSpacer} />
         </ScrollView>
 
-        {/* Ghost renders above all columns, inside DragProvider */}
         <DragGhost />
       </DragProvider>
 
-      {/* Card detail — outside DragProvider is fine, it doesn't need drag context */}
+      {/* Card detail full-screen modal */}
       <Modal
         visible={selectedCard !== null}
         animationType="slide"
@@ -201,6 +212,33 @@ function BoardInner({ projectId, projectName, onBack }: BoardScreenProps) {
           />
         )}
       </Modal>
+
+      {/* New Lane Creation Modal */}
+      <CustomModal
+        visible={showAddLane}
+        onClose={() => { setShowAddLane(false); setNewLaneName(''); }}
+        title="New lane"
+      >
+        <TextInput
+          label="Lane name"
+          value={newLaneName}
+          onChangeText={setNewLaneName}
+          autoFocus
+          returnKeyType="done"
+          onSubmitEditing={handleAddLaneSubmit}
+          containerStyle={styles.modalInput}
+        />
+        <View style={styles.colorPickerContainer}>
+          <Text style={[styles.colorPickerLabel, { color: theme.colors.textSecondary }]}>Lane color</Text>
+          <ColorPicker value={newLaneColor} onChange={setNewLaneColor} />
+        </View>
+        <Button
+          label="Add lane"
+          onPress={handleAddLaneSubmit}
+          isLoading={isAddingLane}
+          disabled={!newLaneName.trim()}
+        />
+      </CustomModal>
     </View>
   );
 }
@@ -232,4 +270,33 @@ const styles = StyleSheet.create({
   errorText:     { color: '#fff', fontSize: 13, fontWeight: '500' },
   boardContent:  { paddingHorizontal: 12, paddingVertical: 16, alignItems: 'flex-start' },
   endSpacer:     { width: 12 },
+  
+  // Add Lane Button
+  addLaneButton: {
+    width: 280, // Matches SwimlaneColumn COLUMN_WIDTH
+    height: 48,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  addLaneText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  
+  // Add Lane Modal
+  modalInput: { 
+    marginBottom: 16 
+  },
+  colorPickerContainer: { 
+    marginBottom: 24, 
+    gap: 8 
+  },
+  colorPickerLabel: { 
+    fontSize: 13, 
+    fontWeight: '500' 
+  },
 });

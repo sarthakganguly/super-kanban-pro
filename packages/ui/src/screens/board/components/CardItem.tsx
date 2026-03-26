@@ -19,7 +19,7 @@
  *   - Long-press → opens quick action menu
  */
 
-import React, { memo, useCallback } from 'react';
+import React, { memo, useCallback, useMemo } from 'react';
 import {
   Pressable,
   StyleSheet,
@@ -28,6 +28,8 @@ import {
 } from 'react-native';
 import type { Card } from '@kanban/types';
 import { formatDate, isOverdue } from '@kanban/utils';
+import { useDatabase, useObservableQuery, type TagModel } from '@kanban/database';
+import { Q } from '@nozbe/watermelondb';
 import { useTheme } from '../../theme/ThemeProvider';
 
 // ---------------------------------------------------------------------------
@@ -55,12 +57,22 @@ function CardItemBase({
   isActive = false,
 }: CardItemProps) {
   const theme = useTheme();
+  const db    = useDatabase();
+
+  // Reactive subscription to tags for this specific card
+  const tagsQuery = useMemo(() => 
+    db.db.get<TagModel>('tags').query(
+      Q.on('card_tags', 'card_id', card.id)
+    ).observe(),
+  [db, card.id]);
+
+  const tags = useObservableQuery(tagsQuery) ||[];
 
   const handlePress     = useCallback(() => onPress(card.id), [onPress, card.id]);
   const handleLongPress = useCallback(() => {
     onLongPress(card.id);
     drag?.();
-  }, [onLongPress, card.id, drag]);
+  },[onLongPress, card.id, drag]);
 
   const cardBg   = card.color ?? theme.colors.bgCard;
   const overdue  = card.dueDate ? isOverdue(card.dueDate) : false;
@@ -70,7 +82,7 @@ function CardItemBase({
     <Pressable
       onPress={handlePress}
       onLongPress={handleLongPress}
-      style={({ pressed }) => [
+      style={({ pressed }) =>[
         styles.card,
         {
           backgroundColor: cardBg,
@@ -108,6 +120,37 @@ function CardItemBase({
         {card.title}
       </Text>
 
+      {/* Tags Row */}
+      {tags.length > 0 && (
+        <View style={styles.tagsRow}>
+          {tags.slice(0, 8).map((tag) => (
+            <View
+              key={tag.id}
+              style={[
+                styles.tagPill,
+                { backgroundColor: tag.color + '22', borderColor: tag.color + '55' },
+              ]}
+            >
+              <Text style={[styles.tagText, { color: tag.color }]} numberOfLines={1}>
+                #{tag.name}
+              </Text>
+            </View>
+          ))}
+          {tags.length > 8 && (
+            <View
+              style={[
+                styles.tagPill,
+                { backgroundColor: theme.colors.bgTertiary, borderColor: theme.colors.borderDefault },
+              ]}
+            >
+              <Text style={[styles.tagText, { color: theme.colors.textSecondary }]}>
+                +{tags.length - 8}
+              </Text>
+            </View>
+          )}
+        </View>
+      )}
+
       {/* Markdown preview — plain text only; Phase 7 adds full rendering */}
       {hasDesc && (
         <Text
@@ -115,7 +158,7 @@ function CardItemBase({
             styles.preview,
             { color: theme.colors.textSecondary, fontSize: theme.typography.fontSizeXs },
           ]}
-          numberOfLines={2}
+          numberOfLines={4}
         >
           {card.descriptionMarkdown.replace(/[#*`_~[\]()>]/g, '').trim()}
         </Text>
@@ -160,6 +203,7 @@ function CardItemBase({
 }
 
 // Custom memo comparison — only re-render when card data actually changes
+// (Internal hook state like tags will still trigger normal reactive re-renders)
 export const CardItem = memo(CardItemBase, (prev, next) =>
   prev.card.id             === next.card.id &&
   prev.card.title          === next.card.title &&
@@ -199,6 +243,24 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     lineHeight: 20,
     paddingRight: 14, // space for status dot
+  },
+  tagsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 4,
+    marginTop: 2,
+    marginBottom: 2,
+  },
+  tagPill: {
+    borderRadius: 10,
+    borderWidth: 1,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    justifyContent: 'center',
+  },
+  tagText: {
+    fontSize: 11,
+    fontWeight: '600',
   },
   preview: {
     lineHeight: 16,

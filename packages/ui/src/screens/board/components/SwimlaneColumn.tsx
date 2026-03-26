@@ -23,7 +23,8 @@ import { IconButton } from '../../components/IconButton';
 import { Modal } from '../../components/Modal';
 import { TextInput } from '../../components/TextInput';
 import { DraggableCardItem } from '../drag/DraggableCardItem';
-import { getCardItemLayout, selectFlatListPreset } from '../../../../services/src/performance/flatListConfig';
+// We keep selectFlatListPreset, but removed getCardItemLayout
+import { selectFlatListPreset } from '../../../../services/src/performance/flatListConfig';
 import { DropZone } from '../drag/DropZone';
 import { useDragContext } from '../drag/DragContext';
 
@@ -51,11 +52,11 @@ function SwimlaneColumnBase({
 
   const columnRef = useRef<View>(null);
 
-  const [addingCard,    setAddingCard]    = useState(false);
-  const [newCardTitle,  setNewCardTitle]  = useState('');
+  const[addingCard,    setAddingCard]    = useState(false);
+  const[newCardTitle,  setNewCardTitle]  = useState('');
   const [addingLoading, setAddingLoading] = useState(false);
   const [menuOpen,    setMenuOpen]    = useState(false);
-  const [renaming,    setRenaming]    = useState(false);
+  const[renaming,    setRenaming]    = useState(false);
   const [renameValue, setRenameValue] = useState(lane.name);
 
   // Register page-level bounds whenever the column lays out or scrolls
@@ -78,7 +79,7 @@ function SwimlaneColumnBase({
     if (!renameValue.trim()) return;
     await onRenameLane(lane.id, renameValue);
     setRenaming(false);
-  }, [lane.id, renameValue, onRenameLane]);
+  },[lane.id, renameValue, onRenameLane]);
 
   const renderCard: ListRenderItem<Card> = useCallback(
     ({ item }) => (
@@ -92,7 +93,7 @@ function SwimlaneColumnBase({
     [lane.id, onCardPress, onCardLongPress],
   );
 
-  const keyExtractor = useCallback((item: Card) => item.id, []);
+  const keyExtractor = useCallback((item: Card) => item.id,[]);
 
   return (
     <View
@@ -133,7 +134,7 @@ function SwimlaneColumnBase({
         contentContainerStyle={styles.cardList}
         showsVerticalScrollIndicator={false}
         {...selectFlatListPreset(cards.length)}
-        getItemLayout={getCardItemLayout}
+        // getItemLayout is removed so FlatList measures card heights dynamically!
       />
 
       {addingCard ? (
@@ -155,7 +156,7 @@ function SwimlaneColumnBase({
         </View>
       ) : (
         <Pressable
-          style={({ pressed }) => [styles.addButton, { opacity: pressed ? 0.6 : 1 }]}
+          style={({ pressed }) =>[styles.addButton, { opacity: pressed ? 0.6 : 1 }]}
           onPress={() => setAddingCard(true)}
           accessibilityRole="button"
           accessibilityLabel={`Add card to ${lane.name}`}
@@ -190,7 +191,7 @@ export const SwimlaneColumn = memo(SwimlaneColumnBase, (prev, next) =>
 
 const COLUMN_WIDTH = 280;
 const styles = StyleSheet.create({
-  column:         { width: COLUMN_WIDTH, marginRight: 12, borderRadius: 12, overflow: 'hidden' },
+  column:         { width: COLUMN_WIDTH, marginRight: 12, borderRadius: 12, overflow: 'hidden', flexShrink: 1 },
   header:         { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, paddingVertical: 10 },
   headerLeft:     { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 },
   colorDot:       { width: 10, height: 10, borderRadius: 5 },
