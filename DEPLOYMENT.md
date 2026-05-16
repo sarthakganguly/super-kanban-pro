@@ -1,6 +1,7 @@
 # Deployment & Post-Build Guide
 
 All 12 phases are complete. This document covers:
+0. [Development Phases](#0-development-phases)
 1. [Final git commit](#1-final-git-commit)
 2. [Local testing checklist](#2-local-testing-checklist)
 3. [Production web build](#3-production-web-build)
@@ -8,6 +9,32 @@ All 12 phases are complete. This document covers:
 5. [Mobile build](#5-mobile-build)
 6. [Running the full test suite](#6-running-the-full-test-suite)
 7. [What comes after Phase 12](#7-what-comes-after-phase-12)
+
+---
+
+## 0. Development Phases
+
+The project was built in 12 distinct phases:
+
+| Phase | Description |
+| :--- | :--- |
+| **Phase 1** | Monorepo, TypeScript, Docker, Zustand, design tokens |
+| **Phase 2** | WatermelonDB schema, 8 models, 5 repositories, platform adapters |
+| **Phase 3** | Local auth (bcrypt cost 12), session persistence, AuthGate |
+| **Phase 4** | Project CRUD, ProjectListScreen, AppNavigator |
+| **Phase 5** | Full Kanban engine: lanes, cards, fractional ordering, board UI |
+| **Phase 6** | Cross-lane drag-and-drop via PanResponder + DragContext |
+| **Phase 7** | Markdown editor (web+native), hashtag system, TagService |
+| **Phase 8** | Attachments: Canvas/ImageResizer compression, blob storage |
+| **Phase 9** | Settings: theme, fonts, default lanes, image size, sync endpoint |
+| **Phase 10** | Performance: reactive observables, adaptive FlatList, rebalancer |
+| **Phase 11** | LRU thumbnail cache (O(1) all ops), prefetch, zero flicker |
+| **Phase 12** | PWA: Workbox service worker, manifest, offline banner, update prompt |
+
+**Project Stats:**
+- 130 files
+- 14 test suites
+- ~2400 lines of test code
 
 ---
 

@@ -200,7 +200,9 @@ The sync endpoint can also be set per-user inside the app's Settings screen.
 
 ---
 
-## Production Build
+## Production Build & Deployment
+
+For detailed build instructions, PWA verification, and the 12-phase development roadmap, see **[DEPLOYMENT.md](DEPLOYMENT.md)**.
 
 ```bash
 # Inside the container or with Node installed locally
