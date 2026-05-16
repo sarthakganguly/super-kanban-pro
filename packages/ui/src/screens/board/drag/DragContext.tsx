@@ -56,6 +56,8 @@ export interface DragContextValue extends DragState {
   registerLaneBounds: (laneId: string, left: number, right: number, top: number) => void;
   getLaneAtX:         (pageX: number) => string | null;
   getLaneBound:       (laneId: string) => LaneBound | null;
+  /** Called by BoardScreen ScrollView to keep bounds in sync during horizontal scroll */
+  onBoardScroll:      (x: number) => void;
 }
 
 const IDLE_STATE: DragState = {
@@ -101,15 +103,26 @@ export function DragProvider({ children, onDrop }: DragProviderProps) {
 
   const dragPosition  = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
   const laneBoundsRef = useRef<LaneBound[]>([]);
+  const scrollXRef    = useRef(0);
 
   // ---------------------------------------------------------------------------
   // Lane bounds
   // ---------------------------------------------------------------------------
 
+  const onBoardScroll = useCallback((x: number) => {
+    scrollXRef.current = x;
+  }, []);
+
   const registerLaneBounds = useCallback(
     (laneId: string, left: number, right: number, top: number) => {
       const idx   = laneBoundsRef.current.findIndex((b) => b.laneId === laneId);
-      const bound = { laneId, left, right, top };
+      // Store content-relative bounds by adding current scroll offset to window coordinates
+      const bound = {
+        laneId,
+        left:  left + scrollXRef.current,
+        right: right + scrollXRef.current,
+        top,
+      };
       if (idx >= 0) laneBoundsRef.current[idx] = bound;
       else          laneBoundsRef.current.push(bound);
     },
@@ -117,15 +130,25 @@ export function DragProvider({ children, onDrop }: DragProviderProps) {
   );
 
   const getLaneAtX = useCallback((pageX: number): string | null => {
+    // pageX is window-relative. Convert to content-relative to match stored bounds.
+    const contentX = pageX + scrollXRef.current;
     for (const b of laneBoundsRef.current) {
-      if (pageX >= b.left && pageX <= b.right) return b.laneId;
+      if (contentX >= b.left && contentX <= b.right) return b.laneId;
     }
     return null;
   }, []);
 
   const getLaneBound = useCallback(
-    (laneId: string): LaneBound | null =>
-      laneBoundsRef.current.find((b) => b.laneId === laneId) ?? null,
+    (laneId: string): LaneBound | null => {
+      const b = laneBoundsRef.current.find((b) => b.laneId === laneId);
+      if (!b) return null;
+      // Convert content-relative back to window-relative for DraggableCardItem
+      return {
+        ...b,
+        left:  b.left - scrollXRef.current,
+        right: b.right - scrollXRef.current,
+      };
+    },
     [],
   );
 
@@ -184,6 +207,7 @@ export function DragProvider({ children, onDrop }: DragProviderProps) {
         registerLaneBounds,
         getLaneAtX,
         getLaneBound,
+        onBoardScroll,
       }}
     >
       {children}

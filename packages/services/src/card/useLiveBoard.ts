@@ -225,27 +225,52 @@ export function useLiveBoard(projectId: string): UseLiveBoardReturn {
   }, [patchCard]);
 
   const moveCard = useCallback(async (input: MoveCardInput) => {
+    // 1. Optimistic Update (Immediate UI feedback)
+    let movingCard: Card | undefined;
+    
+    setCards((prev) => {
+      const next = new Map(prev);
+      
+      // Remove from source
+      for (const [laneId, laneCards] of next) {
+        const idx = laneCards.findIndex((c) => c.id === input.cardId);
+        if (idx !== -1) {
+          movingCard = { ...laneCards[idx], laneId: input.targetLaneId };
+          next.set(laneId, laneCards.filter((_, i) => i !== idx));
+          break;
+        }
+      }
+
+      if (!movingCard) return prev;
+
+      // Insert into target at correct position
+      const targetCards = [...(next.get(input.targetLaneId) ?? [])];
+      
+      let insertIdx = targetCards.length;
+      if (input.prevCardId === null) {
+        insertIdx = 0;
+      } else {
+        const prevIdx = targetCards.findIndex(c => c.id === input.prevCardId);
+        if (prevIdx !== -1) {
+          insertIdx = prevIdx + 1;
+        }
+      }
+
+      targetCards.splice(insertIdx, 0, movingCard);
+      next.set(input.targetLaneId, targetCards);
+      return next;
+    });
+
+    // 2. Persistent Update
     try {
       await cardSvc.current.moveCard(input);
-      setCards((prev) => {
-        let movingCard: Card | undefined;
-        const next = new Map(prev);
-        for (const [laneId, laneCards] of next) {
-          const idx = laneCards.findIndex((c) => c.id === input.cardId);
-          if (idx !== -1) {
-            movingCard = laneCards[idx];
-            next.set(laneId, laneCards.filter((_, i) => i !== idx));
-            break;
-          }
-        }
-        if (!movingCard) return prev;
-        const targetCards = [...(next.get(input.targetLaneId) ?? [])];
-        targetCards.push({ ...movingCard, laneId: input.targetLaneId });
-        next.set(input.targetLaneId, targetCards);
-        return next;
-      });
-    } catch { setError('Failed to move card.'); }
-  },[]);
+    } catch (err) {
+      console.error('[useLiveBoard] moveCard failed:', err);
+      setError('Failed to move card. Please try again.');
+      // Note: We don't manually rollback here because the reactive DB subscription 
+      // will eventually emit the "correct" (original) state, fixing the UI.
+    }
+  }, []);
 
   const deleteCard = useCallback(async (cardId: string) => {
     try {

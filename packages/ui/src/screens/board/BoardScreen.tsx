@@ -27,6 +27,7 @@ import { CardDetailScreen } from './CardDetailScreen';
 import { DragGhost } from './drag/DragGhost';
 import { DragProvider } from './drag/DragContext';
 import { useDragDrop } from './drag/useDragDrop';
+import { useDragContext } from './drag/DragContext';
 import { SwimlaneColumn } from './components/SwimlaneColumn';
 
 export interface BoardScreenProps {
@@ -37,6 +38,70 @@ export interface BoardScreenProps {
 
 export function BoardScreen(props: BoardScreenProps) {
   return <BoardInner {...props} />;
+}
+
+/**
+ * BoardContent
+ * 
+ * Extracted so it can access useDragContext() which is provided by
+ * DragProvider inside BoardInner.
+ */
+function BoardContent({
+  lanes,
+  cards,
+  handleCardPress,
+  handleCardLongPress,
+  handleCreateCard,
+  renameLane,
+  handleDeleteLane,
+  setShowAddLane,
+}: any) {
+  const theme   = useTheme();
+  const dragCtx = useDragContext();
+
+  return (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={styles.boardContent}
+      directionalLockEnabled={false}
+      scrollEventThrottle={16}
+      onScroll={(e) => dragCtx.onBoardScroll(e.nativeEvent.contentOffset.x)}
+    >
+      {lanes.map((lane: any) => (
+        <SwimlaneColumn
+          key={lane.id}
+          lane={lane}
+          cards={cards.get(lane.id) ?? []}
+          onCardPress={handleCardPress}
+          onCardLongPress={handleCardLongPress}
+          onCreateCard={handleCreateCard}
+          onRenameLane={renameLane}
+          onDeleteLane={handleDeleteLane}
+        />
+      ))}
+
+      <Pressable
+        style={({ pressed }) => [
+          styles.addLaneButton,
+          {
+            backgroundColor: theme.colors.bgSecondary,
+            borderColor: theme.colors.borderDefault,
+            opacity: pressed ? 0.7 : 1,
+          },
+        ]}
+        onPress={() => setShowAddLane(true)}
+        accessibilityRole="button"
+        accessibilityLabel="Add new lane"
+      >
+        <Text style={[styles.addLaneText, { color: theme.colors.textSecondary }]}>
+          + Add another lane
+        </Text>
+      </Pressable>
+
+      <View style={styles.endSpacer} />
+    </ScrollView>
+  );
 }
 
 function BoardInner({ projectId, projectName, onBack }: BoardScreenProps) {
@@ -161,46 +226,16 @@ function BoardInner({ projectId, projectName, onBack }: BoardScreenProps) {
       )}
 
       <DragProvider onDrop={onDrop}>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.boardContent}
-          directionalLockEnabled={false}
-        >
-          {lanes.map((lane) => (
-            <SwimlaneColumn
-              key={lane.id}
-              lane={lane}
-              cards={cards.get(lane.id) ??[]}
-              onCardPress={handleCardPress}
-              onCardLongPress={handleCardLongPress}
-              onCreateCard={handleCreateCard}
-              onRenameLane={renameLane}
-              onDeleteLane={handleDeleteLane}
-            />
-          ))}
-
-          <Pressable
-            style={({ pressed }) =>[
-              styles.addLaneButton,
-              {
-                backgroundColor: theme.colors.bgSecondary,
-                borderColor: theme.colors.borderDefault,
-                opacity: pressed ? 0.7 : 1,
-              },
-            ]}
-            onPress={() => setShowAddLane(true)}
-            accessibilityRole="button"
-            accessibilityLabel="Add new lane"
-          >
-            <Text style={[styles.addLaneText, { color: theme.colors.textSecondary }]}>
-              + Add another lane
-            </Text>
-          </Pressable>
-
-          <View style={styles.endSpacer} />
-        </ScrollView>
-
+        <BoardContent
+          lanes={lanes}
+          cards={cards}
+          handleCardPress={handleCardPress}
+          handleCardLongPress={handleCardLongPress}
+          handleCreateCard={handleCreateCard}
+          renameLane={renameLane}
+          handleDeleteLane={handleDeleteLane}
+          setShowAddLane={setShowAddLane}
+        />
         <DragGhost />
       </DragProvider>
 

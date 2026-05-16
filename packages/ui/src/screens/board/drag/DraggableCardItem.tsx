@@ -28,8 +28,8 @@ import { CardItem } from '../components/CardItem';
 // Constants
 // ---------------------------------------------------------------------------
 
-const LONG_PRESS_DELAY = 300;
-const DRAG_THRESHOLD   = 8;
+const LONG_PRESS_DELAY = 150;
+const DRAG_THRESHOLD   = 12;
 /** Approximate pixel height of the lane column header */
 const LANE_HEADER_H    = 44;
 
@@ -91,10 +91,10 @@ function WebDraggableCardItem({
         const dy = mv.clientY - startY;
 
         if (!dragStarted) {
-          // Cancel drag-start if finger moved too far before delay elapsed
+          // Cancel drag-start if mouse moved too far before delay elapsed
           if (Math.abs(dx) > DRAG_THRESHOLD || Math.abs(dy) > DRAG_THRESHOLD) {
             clearTimeout(timer);
-            cleanup();
+            // We don't cleanup here anymore — let the browser handle normal clicks
           }
           return;
         }
@@ -110,8 +110,10 @@ function WebDraggableCardItem({
           // Calculate drop index from Y position within that lane
           const laneBound = getLaneBound(hoveredLaneId);
           if (laneBound) {
-            const relY = mv.clientY - laneBound.top - LANE_HEADER_H;
-            setDropIndex(Math.max(0, Math.floor(relY / CARD_SLOT_HEIGHT)));
+            const relY = mv.clientY - (laneBound.top + LANE_HEADER_H);
+            // Use midpoints (relY + 45) so that being in the bottom half 
+            // of a card targets the position after it.
+            setDropIndex(Math.max(0, Math.floor((relY + 45) / 90)));
           }
         }
       };
@@ -122,6 +124,7 @@ function WebDraggableCardItem({
         if (dragStarted) {
           void endDrag();
         } else {
+          // If we never started dragging, it was a click
           onPress(card.id);
         }
       };
@@ -134,8 +137,9 @@ function WebDraggableCardItem({
       document.addEventListener('mousemove', handleMouseMove);
       document.addEventListener('mouseup',  handleMouseUp);
 
-      // Prevent text selection and stop Pressable from ever seeing this event
+      // Prevent text selection and stop propagation to prevent parent handlers (like ScrollView)
       e.preventDefault();
+      e.stopPropagation();
     },
     [
       card, laneId, dragPosition,
@@ -153,10 +157,6 @@ function WebDraggableCardItem({
         WebkitUserSelect: 'none',
       }}
     >
-      {/*
-       * pointerEvents="none" on the inner View means Pressable never receives
-       * mouse events — all interaction is handled by the div above.
-       */}
       <View pointerEvents="none">
         <CardItem
           card={card}
@@ -170,7 +170,7 @@ function WebDraggableCardItem({
 }
 
 // ---------------------------------------------------------------------------
-// Native implementation (PanResponder — unchanged logic, setHoverLane added)
+// Native implementation (PanResponder)
 // ---------------------------------------------------------------------------
 
 function NativeDraggableCardItem({
@@ -214,10 +214,17 @@ function NativeDraggableCardItem({
         Math.abs(gs.dy) > DRAG_THRESHOLD || Math.abs(gs.dx) > DRAG_THRESHOLD,
 
       onPanResponderGrant: (evt: GestureResponderEvent) => {
+        // Capture initial touch coordinates immediately as fallback
+        const touchX = evt.nativeEvent.pageX;
+        const touchY = evt.nativeEvent.pageY;
+
         longPressTimer.current = setTimeout(() => {
           isDragActive.current = true;
           measureCard();
-          dragPosition.setValue({ x: cardPageX.current, y: cardPageY.current });
+          // Fallback to touch coordinates if measure hasn't finished
+          const startX = cardPageX.current || (touchX - 130); // center roughly
+          const startY = cardPageY.current || (touchY - 40);
+          dragPosition.setValue({ x: startX, y: startY });
           startDrag(card, laneId);
         }, LONG_PRESS_DELAY);
       },
@@ -233,9 +240,12 @@ function NativeDraggableCardItem({
           return;
         }
 
+        const startX = cardPageX.current || (evt.nativeEvent.pageX - gs.dx - 130);
+        const startY = cardPageY.current || (evt.nativeEvent.pageY - gs.dy - 40);
+
         dragPosition.setValue({
-          x: cardPageX.current + gs.dx,
-          y: cardPageY.current + gs.dy,
+          x: startX + gs.dx,
+          y: startY + gs.dy,
         });
 
         // Update target lane
@@ -244,8 +254,9 @@ function NativeDraggableCardItem({
           setHoverLane(hoveredLaneId);
           const laneBound = getLaneBound(hoveredLaneId);
           if (laneBound) {
-            const relY = evt.nativeEvent.pageY - laneBound.top - LANE_HEADER_H;
-            setDropIndex(Math.max(0, Math.floor(relY / CARD_SLOT_HEIGHT)));
+            const relY = evt.nativeEvent.pageY - (laneBound.top + LANE_HEADER_H);
+            // Use midpoints (relY + 45) for more natural reordering
+            setDropIndex(Math.max(0, Math.floor((relY + 45) / 90)));
           }
         }
       },
