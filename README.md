@@ -4,6 +4,9 @@
 
 # Super Kanban Pro
 
+> [!NOTE]
+> For the developer handbook and architectural roadmap, see **[GEMINI.md](./GEMINI.md)**. For production build guides and verification instructions, see **[DEPLOYMENT.md](./DEPLOYMENT.md)**.
+
 An offline-first Kanban board built with React Native and React Native Web — one codebase that runs natively on iOS, Android, and in the browser as a PWA.
 
 All data lives on your device. No account required, no server, no subscription.

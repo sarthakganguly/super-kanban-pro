@@ -1,5 +1,8 @@
 # Deployment & Post-Build Guide
 
+> [!NOTE]
+> For the developer handbook and architectural roadmap, see **[GEMINI.md](./GEMINI.md)**. For general overview and local installation instructions, see **[README.md](./README.md)**.
+
 All 12 phases are complete. This document covers:
 0. [Development Phases](#0-development-phases)
 1. [Final git commit](#1-final-git-commit)

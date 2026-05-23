@@ -31,9 +31,12 @@ import { useDragContext } from './drag/DragContext';
 import { SwimlaneColumn } from './components/SwimlaneColumn';
 
 export interface BoardScreenProps {
-  projectId:   string;
-  projectName: string;
-  onBack:      () => void;
+  projectId:    string;
+  projectName:  string;
+  cardId?:      string | undefined;
+  onBack:       () => void;
+  onSelectCard?: (cardId: string) => void;
+  onCloseCard?:  () => void;
 }
 
 export function BoardScreen(props: BoardScreenProps) {
@@ -104,7 +107,14 @@ function BoardContent({
   );
 }
 
-function BoardInner({ projectId, projectName, onBack }: BoardScreenProps) {
+function BoardInner({
+  projectId,
+  projectName,
+  onBack,
+  cardId,
+  onSelectCard,
+  onCloseCard,
+}: BoardScreenProps) {
   const theme = useTheme();
 
   const {
@@ -121,13 +131,31 @@ function BoardInner({ projectId, projectName, onBack }: BoardScreenProps) {
       const timer = setTimeout(() => void rebalanceIfNeeded(), 3000);
       return () => clearTimeout(timer);
     }
-  },[isLoading, rebalanceIfNeeded]);
+    return;
+  }, [isLoading, rebalanceIfNeeded]);
 
   const [selectedCard, setSelectedCard] = useState<Card | null>(null);
 
-  const[showAddLane, setShowAddLane] = useState(false);
+  // Synchronize selectedCard state with cardId route prop
+  React.useEffect(() => {
+    if (cardId) {
+      let foundCard: Card | null = null;
+      for (const laneCards of cards.values()) {
+        const found = laneCards.find((c) => c.id === cardId);
+        if (found) {
+          foundCard = found;
+          break;
+        }
+      }
+      setSelectedCard(foundCard);
+    } else {
+      setSelectedCard(null);
+    }
+  }, [cardId, cards]);
+
+  const [showAddLane, setShowAddLane] = useState(false);
   const [newLaneName, setNewLaneName] = useState('');
-  const[newLaneColor, setNewLaneColor] = useState(LANE_COLOR_PALETTE[0]!);
+  const [newLaneColor, setNewLaneColor] = useState<string>(LANE_COLOR_PALETTE[0]!);
   const [isAddingLane, setIsAddingLane] = useState(false);
 
   const handleAddLaneSubmit = useCallback(async () => {
@@ -138,19 +166,26 @@ function BoardInner({ projectId, projectName, onBack }: BoardScreenProps) {
     setShowAddLane(false);
     setNewLaneName('');
     setNewLaneColor(LANE_COLOR_PALETTE[0]!);
-  },[newLaneName, newLaneColor, createLane]);
+  }, [newLaneName, newLaneColor, createLane]);
 
   const handleCardPress = useCallback(
-    (cardId: string) => {
-      for (const laneCards of cards.values()) {
-        const found = laneCards.find((c) => c.id === cardId);
-        if (found) { setSelectedCard(found); return; }
+    (cId: string) => {
+      if (onSelectCard) {
+        onSelectCard(cId);
+      } else {
+        for (const laneCards of cards.values()) {
+          const found = laneCards.find((c) => c.id === cId);
+          if (found) {
+            setSelectedCard(found);
+            return;
+          }
+        }
       }
     },
-    [cards],
+    [cards, onSelectCard],
   );
 
-  const handleCardLongPress = useCallback((_cardId: string) => {},[]);
+  const handleCardLongPress = useCallback((_cardId: string) => {}, []);
 
   const handleCreateCard = useCallback(
     async (laneId: string, title: string) => { await createCard({ laneId, title }); },
@@ -158,8 +193,8 @@ function BoardInner({ projectId, projectName, onBack }: BoardScreenProps) {
   );
 
   const handleUpdateCard = useCallback(
-    async (cardId: string, updates: Parameters<typeof updateCard>[1]) => {
-      const updated = await updateCard(cardId, updates);
+    async (cId: string, updates: Parameters<typeof updateCard>[1]) => {
+      const updated = await updateCard(cId, updates);
       if (updated) setSelectedCard(updated);
       return updated;
     },
@@ -167,8 +202,15 @@ function BoardInner({ projectId, projectName, onBack }: BoardScreenProps) {
   );
 
   const handleDeleteCard = useCallback(
-    async (cardId: string) => { await deleteCard(cardId); },
-    [deleteCard],
+    async (cId: string) => {
+      await deleteCard(cId);
+      if (onCloseCard) {
+        onCloseCard();
+      } else {
+        setSelectedCard(null);
+      }
+    },
+    [deleteCard, onCloseCard],
   );
 
   const handleDeleteLane = useCallback(
@@ -243,12 +285,24 @@ function BoardInner({ projectId, projectName, onBack }: BoardScreenProps) {
         visible={selectedCard !== null}
         animationType="slide"
         presentationStyle="pageSheet"
-        onRequestClose={() => setSelectedCard(null)}
+        onRequestClose={() => {
+          if (onCloseCard) {
+            onCloseCard();
+          } else {
+            setSelectedCard(null);
+          }
+        }}
       >
         {selectedCard && (
           <CardDetailScreen
             card={selectedCard}
-            onClose={() => setSelectedCard(null)}
+            onClose={() => {
+              if (onCloseCard) {
+                onCloseCard();
+              } else {
+                setSelectedCard(null);
+              }
+            }}
             onUpdate={handleUpdateCard}
             onDelete={handleDeleteCard}
           />

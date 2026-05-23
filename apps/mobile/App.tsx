@@ -12,6 +12,7 @@
 
 import React, { useMemo } from 'react';
 import { SafeAreaView, StatusBar, StyleSheet } from 'react-native';
+import { NavigationContainer } from '@react-navigation/native';
 import { createDatabaseProvider, DatabaseContextProvider } from '@kanban/database';
 import { AuthGate, AppNavigator, ThemeProvider, useTheme } from '@kanban/ui';
 import { createSQLiteAdapter } from '@kanban/adapters-sqlite';
@@ -27,7 +28,9 @@ function AppShell() {
         barStyle={theme.isDark ? 'light-content' : 'dark-content'}
         backgroundColor={theme.colors.bgPrimary}
       />
-      <AppNavigator />
+      <NavigationContainer>
+        <AppNavigator />
+      </NavigationContainer>
     </SafeAreaView>
   );
 }

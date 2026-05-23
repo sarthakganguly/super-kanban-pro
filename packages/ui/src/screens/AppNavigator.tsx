@@ -1,72 +1,48 @@
 /**
- * AppNavigator — Phase 9 update
+ * AppNavigator — URL Routing update
  *
- * Screen states:
- *   'projects' — ProjectListScreen
- *   'board'    — BoardScreen
- *   'settings' — SettingsScreen (new)
- *
- * A gear icon in the ProjectListScreen header navigates to settings.
+ * Screen states are now managed via `@react-navigation/stack`:
+ *   'Projects' — ProjectListScreen
+ *   'Board'    — BoardScreen (receives projectId, projectName, and optional cardId)
+ *   'Settings' — SettingsScreen
  */
 
-import React, { useCallback, useState } from 'react';
-import { useAuth, useProjects } from '@kanban/services';
+import React, { useCallback } from 'react';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { createStackNavigator, StackNavigationProp } from '@react-navigation/stack';
+import { useAuth } from '@kanban/services';
 import { useStore } from '@kanban/store';
 import { BoardScreen } from './board/BoardScreen';
 import { ProjectListScreen } from './projects/ProjectListScreen';
 import { SettingsScreen } from './settings/SettingsScreen';
 
-type AppScreen = 'projects' | 'board' | 'settings';
+export type RootStackParamList = {
+  Projects: undefined;
+  Settings: undefined;
+  Board: {
+    projectId: string;
+    projectName: string;
+    cardId?: string | undefined;
+  };
+};
 
-interface BoardRoute {
-  projectId:   string;
-  projectName: string;
-}
+const Stack = createStackNavigator<RootStackParamList>();
 
-export function AppNavigator() {
-  const { logout }         = useAuth();
-  const clearActiveProject = useStore((s) => s.clearActiveProject);
-
-  const [screen,     setScreen]     = useState<AppScreen>('projects');
-  const [boardRoute, setBoardRoute] = useState<BoardRoute | null>(null);
+function ProjectListScreenWrapper() {
+  const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
+  const { logout } = useAuth();
 
   const handleOpenProject = useCallback((projectId: string, projectName: string) => {
-    setBoardRoute({ projectId, projectName });
-    setScreen('board');
-  }, []);
+    navigation.navigate('Board', { projectId, projectName });
+  }, [navigation]);
+
+  const handleOpenSettings = useCallback(() => {
+    navigation.navigate('Settings');
+  }, [navigation]);
 
   const handleLogout = useCallback(async () => {
     await logout();
   }, [logout]);
-
-  const handleBackToProjects = useCallback(() => {
-    clearActiveProject();
-    setBoardRoute(null);
-    setScreen('projects');
-  }, [clearActiveProject]);
-
-  const handleOpenSettings = useCallback(() => {
-    setScreen('settings');
-  }, []);
-
-  if (screen === 'settings') {
-    return (
-      <SettingsScreen
-        onBack={() => setScreen('projects')}
-        onLogout={handleLogout}
-      />
-    );
-  }
-
-  if (screen === 'board' && boardRoute) {
-    return (
-      <BoardScreen
-        projectId={boardRoute.projectId}
-        projectName={boardRoute.projectName}
-        onBack={handleBackToProjects}
-      />
-    );
-  }
 
   return (
     <ProjectListScreen
@@ -74,5 +50,66 @@ export function AppNavigator() {
       onLogout={handleLogout}
       onOpenSettings={handleOpenSettings}
     />
+  );
+}
+
+function SettingsScreenWrapper() {
+  const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
+  const { logout } = useAuth();
+
+  const handleBack = useCallback(() => {
+    navigation.navigate('Projects');
+  }, [navigation]);
+
+  const handleLogout = useCallback(async () => {
+    await logout();
+  }, [logout]);
+
+  return (
+    <SettingsScreen
+      onBack={handleBack}
+      onLogout={handleLogout}
+    />
+  );
+}
+
+function BoardScreenWrapper() {
+  const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
+  const route = useRoute<RouteProp<RootStackParamList, 'Board'>>();
+  const { projectId, projectName, cardId } = route.params;
+  const clearActiveProject = useStore((s) => s.clearActiveProject);
+
+  const handleBack = useCallback(() => {
+    clearActiveProject();
+    navigation.navigate('Projects');
+  }, [navigation, clearActiveProject]);
+
+  const handleSelectCard = useCallback((cId: string) => {
+    navigation.navigate('Board', { projectId, projectName, cardId: cId });
+  }, [navigation, projectId, projectName]);
+
+  const handleCloseCard = useCallback(() => {
+    navigation.navigate('Board', { projectId, projectName, cardId: undefined });
+  }, [navigation, projectId, projectName]);
+
+  return (
+    <BoardScreen
+      projectId={projectId}
+      projectName={projectName}
+      cardId={cardId}
+      onBack={handleBack}
+      onSelectCard={handleSelectCard}
+      onCloseCard={handleCloseCard}
+    />
+  );
+}
+
+export function AppNavigator() {
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="Projects" component={ProjectListScreenWrapper} />
+      <Stack.Screen name="Settings" component={SettingsScreenWrapper} />
+      <Stack.Screen name="Board" component={BoardScreenWrapper} />
+    </Stack.Navigator>
   );
 }

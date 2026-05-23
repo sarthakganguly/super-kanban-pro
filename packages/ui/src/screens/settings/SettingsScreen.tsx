@@ -93,6 +93,7 @@ export function SettingsScreen({ onBack, onLogout }: SettingsScreenProps) {
     setSyncEndpoint,
     setEnableSync,
     resetToDefaults,
+    emptyTrash,
   } = useSettings();
 
   // Local lane editor state (mirrors settings.defaultSwimlanes)
@@ -195,6 +196,30 @@ export function SettingsScreen({ onBack, onLogout }: SettingsScreenProps) {
       ],
     );
   }, [resetToDefaults]);
+
+  const handleEmptyTrash = useCallback(() => {
+    const message = 'This will permanently delete all archived boards and cards. This action cannot be undone.';
+    if (Platform.OS === 'web') {
+      const confirmed = window.confirm(message);
+      if (confirmed) {
+        void emptyTrash();
+      }
+      return;
+    }
+
+    Alert.alert(
+      'Empty trash',
+      message,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text:  'Empty trash',
+          style: 'destructive',
+          onPress: () => void emptyTrash(),
+        },
+      ],
+    );
+  }, [emptyTrash]);
 
   // ---------------------------------------------------------------------------
   // Render helpers
@@ -471,6 +496,14 @@ export function SettingsScreen({ onBack, onLogout }: SettingsScreenProps) {
 
           {/* ── DANGER ZONE ────────────────────────────────────────────── */}
           <SettingsSection title="Danger zone">
+            <SettingsRow
+              label="Empty trash"
+              sublabel="Permanently delete archived boards and cards"
+              variant="pressable"
+              onPress={handleEmptyTrash}
+              destructive
+              showChevron
+            />
             <SettingsRow
               label="Reset all settings"
               sublabel="Boards and cards are not affected"

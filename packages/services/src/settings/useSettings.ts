@@ -36,6 +36,7 @@ export interface UseSettingsReturn {
   setSyncEndpoint:  (endpoint: string | null) => Promise<void>;
   setEnableSync:    (enabled: boolean) => Promise<void>;
   resetToDefaults:  () => Promise<void>;
+  emptyTrash:       () => Promise<void>;
 }
 
 export function useSettings(): UseSettingsReturn {
@@ -187,6 +188,19 @@ export function useSettings(): UseSettingsReturn {
     }
   }, [settings, currentUser, setTheme]);
 
+  const emptyTrash = useCallback(async () => {
+    if (!currentUser) return;
+    setIsSaving(true);
+    setError(null);
+    try {
+      await svc.current.emptyTrash(currentUser.id);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to empty trash.');
+    } finally {
+      setIsSaving(false);
+    }
+  }, [currentUser]);
+
   return {
     settings,
     isLoading,
@@ -202,5 +216,6 @@ export function useSettings(): UseSettingsReturn {
     setSyncEndpoint,
     setEnableSync,
     resetToDefaults,
+    emptyTrash,
   };
 }

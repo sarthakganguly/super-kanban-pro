@@ -39,7 +39,7 @@
   },
   "jest": {
     "testEnvironment": "node",
-    "setupFiles": ["./jest.setup.ts"],
+    "setupFilesAfterEnv": ["./jest.setup.ts"],
     "transform": {
       "^.+\\.[jt]sx?$": [
         "babel-jest",
@@ -50,7 +50,8 @@
             ["@babel/preset-react", { "runtime": "automatic" }]
           ],
           "plugins": [
-            ["@babel/plugin-proposal-decorators", { "legacy": true }]
+            ["@babel/plugin-proposal-decorators", { "legacy": true }],
+            ["@babel/plugin-proposal-class-properties", { "loose": true }]
           ]
         }
       ]

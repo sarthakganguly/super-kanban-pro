@@ -13,8 +13,18 @@
  *     automatically (the store holds the active theme, not the DB).
  */
 
-import type { DatabaseProvider, UserConfigModel } from '@kanban/database';
+import { Q } from '@nozbe/watermelondb';
+import {
+  type DatabaseProvider,
+  type UserConfigModel,
+  AttachmentModel,
+  CardModel,
+  CardTagModel,
+  ProjectModel,
+  SwimlaneModel,
+} from '@kanban/database';
 import type { ThemeMode, UserConfig } from '@kanban/types';
+import { getBlobStorage } from '../attachment/BlobStorageService';
 
 // ---------------------------------------------------------------------------
 // Settings snapshot — the public domain type
@@ -156,6 +166,127 @@ export class SettingsService {
       syncEndpoint:         null,
     });
   }
+
+  /**
+   * Permanently deletes all soft-deleted projects and cards for the given user,
+   * cascading to child swimlanes, card tags, and attachments (both DB records and storage files).
+   */
+  async emptyTrash(userId: string): Promise<void> {
+    // 1. Find all soft-deleted projects for this user
+    const deletedProjects = await this.db.db
+      .get<ProjectModel>('projects')
+      .query(
+        Q.and(
+          Q.where('user_id', userId),
+          Q.where('deleted_at', Q.notEq(null))
+        )
+      )
+      .fetch();
+
+    const deletedProjectIds = deletedProjects.map((p) => p.id);
+
+    // 2. Find all swimlanes for those soft-deleted projects
+    let deletedSwimlanes: SwimlaneModel[] = [];
+    if (deletedProjectIds.length > 0) {
+      deletedSwimlanes = await this.db.db
+        .get<SwimlaneModel>('swimlanes')
+        .query(Q.where('project_id', Q.oneOf(deletedProjectIds)))
+        .fetch();
+    }
+    const deletedSwimlaneIds = deletedSwimlanes.map((l) => l.id);
+
+    // 3. Find all cards (active and soft-deleted) in those deleted swimlanes
+    let cardsInDeletedLanes: CardModel[] = [];
+    if (deletedSwimlaneIds.length > 0) {
+      cardsInDeletedLanes = await this.db.db
+        .get<CardModel>('cards')
+        .query(Q.where('lane_id', Q.oneOf(deletedSwimlaneIds)))
+        .fetch();
+    }
+
+    // 4. Find all active projects for this user
+    const activeProjects = await this.db.projects.findAllByUserId(userId);
+    const activeProjectIds = activeProjects.map((p) => p.id);
+
+    // 5. Find active swimlanes for these active projects
+    let activeSwimlanesList: SwimlaneModel[] = [];
+    if (activeProjectIds.length > 0) {
+      activeSwimlanesList = await this.db.db
+        .get<SwimlaneModel>('swimlanes')
+        .query(Q.where('project_id', Q.oneOf(activeProjectIds)))
+        .fetch();
+    }
+    const activeSwimlaneIds = activeSwimlanesList.map((l) => l.id);
+
+    // 6. Find all soft-deleted cards inside active lanes
+    let softDeletedCardsInActiveLanes: CardModel[] = [];
+    if (activeSwimlaneIds.length > 0) {
+      softDeletedCardsInActiveLanes = await this.db.db
+        .get<CardModel>('cards')
+        .query(
+          Q.and(
+            Q.where('lane_id', Q.oneOf(activeSwimlaneIds)),
+            Q.where('deleted_at', Q.notEq(null))
+          )
+        )
+        .fetch();
+    }
+
+    // 7. Combine all cards to be deleted
+    const cardsToDeleteMap = new Map<string, CardModel>();
+    cardsInDeletedLanes.forEach((c) => cardsToDeleteMap.set(c.id, c));
+    softDeletedCardsInActiveLanes.forEach((c) => cardsToDeleteMap.set(c.id, c));
+    const cardsToDelete = Array.from(cardsToDeleteMap.values());
+    const cardsToDeleteIds = cardsToDelete.map((c) => c.id);
+
+    // 8. Find all attachments to delete
+    let attachmentsToDelete: AttachmentModel[] = [];
+    if (cardsToDeleteIds.length > 0) {
+      attachmentsToDelete = await this.db.db
+        .get<AttachmentModel>('attachments')
+        .query(Q.where('card_id', Q.oneOf(cardsToDeleteIds)))
+        .fetch();
+    }
+
+    // 9. Find all card-tag joins to delete
+    let cardTagsToDelete: CardTagModel[] = [];
+    if (cardsToDeleteIds.length > 0) {
+      cardTagsToDelete = await this.db.db
+        .get<CardTagModel>('card_tags')
+        .query(Q.where('card_id', Q.oneOf(cardsToDeleteIds)))
+        .fetch();
+    }
+
+    // 10. Physically delete attachment files first (asynchronous)
+    const storage = getBlobStorage();
+    for (const attachment of attachmentsToDelete) {
+      try {
+        await storage.remove(attachment.storageRef);
+      } catch (err) {
+        console.warn(`[SettingsService.emptyTrash] Failed to remove storageRef: ${attachment.storageRef}`, err);
+      }
+      if (attachment.thumbnailRef) {
+        try {
+          await storage.remove(attachment.thumbnailRef);
+        } catch (err) {
+          console.warn(`[SettingsService.emptyTrash] Failed to remove thumbnailRef: ${attachment.thumbnailRef}`, err);
+        }
+      }
+    }
+
+    // 11. Run DB deletion inside a single write batch transaction
+    await this.db.db.write(async () => {
+      const deletions = [
+        ...attachmentsToDelete.map((a) => a.prepareDestroyPermanently()),
+        ...cardTagsToDelete.map((ct) => ct.prepareDestroyPermanently()),
+        ...cardsToDelete.map((c) => c.prepareDestroyPermanently()),
+        ...deletedSwimlanes.map((l) => l.prepareDestroyPermanently()),
+        ...deletedProjects.map((p) => p.prepareDestroyPermanently()),
+      ];
+      await this.db.db.batch(...deletions);
+    });
+  }
+
 
   // ---------------------------------------------------------------------------
   // Mapper
